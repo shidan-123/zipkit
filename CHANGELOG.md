@@ -5,6 +5,23 @@
 
 ---
 
+## [1.1.3] - 2026-10-30
+
+### 修复
+- **双击 `ZipKit.app` 报 `PermissionError: Operation not permitted`**：
+  macOS 的隐私保护（TCC）不允许从 Finder 启动的 App 读取 `~/Downloads`、`~/Documents`、`~/Desktop`。
+  项目放在这些目录时，`import zipkit` 会被系统直接拒绝。
+  现在 `scripts/build_app.py` 会把代码**复制进 App 内部的 `Resources/lib`**，
+  启动器优先加载内置副本——读取"应用自身文件"不受任何目录权限限制。
+- 自检改为在临时目录执行，避免误测到项目目录的副本。
+- 弹窗消息改用 `osascript` 的 argv 传递，多行错误信息不再被转义破坏。
+
+### 新增
+- `scripts/build_app.py`：一键重建应用包 + 导入自检
+- `tests/test_app_bundle.py`：比对应用包与源码，防止"改了代码忘记重建"
+
+---
+
 ## [1.1.2] - 2026-10-30
 
 ### 修复

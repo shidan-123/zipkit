@@ -38,6 +38,12 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 
-export PYTHONPATH="$(pwd)${PYTHONPATH:+:$PYTHONPATH}"
+# 优先用 App 内置的代码副本（和 .app 保持同一份逻辑）
+BUNDLED="$(pwd)/ZipKit.app/Contents/Resources/lib"
+if [ -d "$BUNDLED/zipkit" ]; then
+  export PYTHONPATH="$BUNDLED${PYTHONPATH:+:$PYTHONPATH}"
+else
+  export PYTHONPATH="$(pwd)${PYTHONPATH:+:$PYTHONPATH}"
+fi
 echo "使用 Python：$PY"
 exec "$PY" -m zipkit gui

@@ -1,34 +1,55 @@
 #!/bin/bash
 # ZipKit 大文件版 —— macOS 应用启动器
-# 被双击时由 launchd 直接执行，不会弹终端窗口。
-# 任何失败都会写进 ~/Library/Logs/ZipKit.log 并弹出可读的提示。
+#
+# 设计要点（都是踩过的坑）：
+# 1. 代码优先用「应用内置」的 Resources/lib。从 Finder 启动的 App 在
+#    没有隐私授权时读不了 ~/Downloads、~/Documents、~/Desktop，
+#    对项目文件夹 import 会抛 PermissionError: Operation not permitted。
+# 2. 显式设置 PYTHONPATH，不依赖"当前目录"进 sys.path。
+# 3. 失败必须能看见原因：写日志 + 弹窗（消息用 argv 传，避开转义地狱）。
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PROJECT="$(cd "$HERE/../../.." && pwd)"
+PROJECT="$(cd "$HERE/../../.." 2>/dev/null && pwd)"
 LOG="${ZIPKIT_LOG:-$HOME/Library/Logs/ZipKit.log}"
-mkdir -p "$(dirname "$LOG")"
+mkdir -p "$(dirname "$LOG")" 2>/dev/null
 
-log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG"; }
+log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG" 2>/dev/null; }
 
 show_error() {
   local msg="$1"
   log "ERROR: $msg"
-  msg="${msg//\"/\\\"}"
-  /usr/bin/osascript -e "display dialog \"$msg\" with title \"ZipKit 打不开\" buttons {\"好\"} default button 1 with icon caution" >/dev/null 2>&1
+  local script_file
+  script_file="$(mktemp -t zipkit-dialog 2>/dev/null || echo /tmp/zipkit-dialog.$$)"
+  {
+    echo 'on run argv'
+    echo 'display dialog (item 1 of argv) with title "ZipKit 打不开" buttons {"好"} default button 1 with icon caution'
+    echo 'end run'
+  } >"$script_file"
+  /usr/bin/osascript "$script_file" "$msg" >/dev/null 2>&1
+  rm -f "$script_file"
 }
 
-log "=== 启动 === 项目目录: $PROJECT"
+log "=== 启动 ===  app: $HERE"
 
-if [ ! -f "$PROJECT/zipkit/cli.py" ]; then
-  show_error "找不到程序文件：$PROJECT/zipkit/cli.py
+# ---------------------------------------------------------------- 代码位置
+BUNDLED="$HERE/../Resources/lib"
+if [ -d "$BUNDLED/zipkit" ]; then
+  LIB="$BUNDLED"
+  log "代码来源: 应用内置 $LIB"
+else
+  LIB="$PROJECT"
+  log "代码来源: 项目文件夹 $LIB"
+fi
 
-请确认 ZipKit.app 还在原来的文件夹（zipkit/）里，不要单独拖走。
+if [ ! -f "$LIB/zipkit/cli.py" ]; then
+  show_error "找不到程序文件：$LIB/zipkit/cli.py
 
-日志：~/Library/Logs/ZipKit.log"
+请重新解压整个 zipkit 文件夹，不要只拷贝 ZipKit.app。"
   exit 1
 fi
 
-# 依次尝试能开窗口的 Python（Tk 必须 >= 8.6，8.5 在 macOS 26 上会崩）
+# ---------------------------------------------------------------- 选 Python
+# Tk 必须 >= 8.6：8.5 在 macOS 26 上会让进程直接 abort
 PY=""
 for candidate in \
   /usr/local/bin/python3 \
@@ -40,7 +61,6 @@ do
   if command -v "$candidate" >/dev/null 2>&1; then
     if "$candidate" -c "import tkinter,sys; sys.exit(0 if tkinter.TkVersion>=8.6 else 1)" >/dev/null 2>&1; then
       PY="$candidate"
-      log "选用 Python: $PY"
       break
     fi
     log "跳过（Tk 版本不满足）: $candidate"
@@ -52,36 +72,36 @@ if [ -z "$PY" ]; then
 
 办法一：装官方 Python 3.13
         https://www.python.org/downloads/
+
 办法二：用命令行，功能完全一样
-        cd \"$PROJECT\"
-        python3 -m zipkit unpack 你的文件.zip
-
-日志：~/Library/Logs/ZipKit.log"
+        cd $PROJECT
+        python3 -m zipkit unpack 你的文件.zip"
   exit 1
 fi
+log "选用 Python: $PY"
 
-cd "$PROJECT" || { show_error "无法进入项目目录：$PROJECT"; exit 1; }
+# ---------------------------------------------------------------- 环境
+export PYTHONPATH="$LIB${PYTHONPATH:+:$PYTHONPATH}"
+cd "$LIB" 2>/dev/null || cd /tmp
+log "PYTHONPATH=$PYTHONPATH"
 
-# 关键：不让导入依赖"当前目录"。
-# 从 Finder / launchd 启动时，Python 的 sys.path 可能不含 CWD
-# （例如设置了 PYTHONSAFEPATH），于是 -m zipkit 会报 No module named zipkit。
-export PYTHONPATH="$PROJECT${PYTHONPATH:+:$PYTHONPATH}"
+# ---------------------------------------------------------------- 自检
+ERR_FILE="$(mktemp -t zipkit-err 2>/dev/null || echo /tmp/zipkit-err.$$)"
+if ! "$PY" -c "import zipkit, zipkit.gui" >/dev/null 2>"$ERR_FILE"; then
+  DETAIL="$(tail -6 "$ERR_FILE" 2>/dev/null)"
+  cat "$ERR_FILE" >>"$LOG" 2>/dev/null
+  rm -f "$ERR_FILE"
+  show_error "Python 加载程序失败。
 
-log "PATH=$PATH"
-log "PYTHONSAFEPATH=${PYTHONSAFEPATH:-未设置}  PYTHONPATH=$PYTHONPATH"
+$DETAIL
 
-if ! "$PY" -c "import zipkit" >/dev/null 2>>"$LOG"; then
-  show_error "Python 找不到 ZipKit 的程序文件。
-
-项目目录：$PROJECT
-Python：$PY
-
-请确认 zipkit/ 文件夹是完整的（里面应该有 zipkit/core/、zipkit/gui.py）。
-
-日志：~/Library/Logs/ZipKit.log"
+代码位置：$LIB
+完整日志：~/Library/Logs/ZipKit.log"
   exit 1
 fi
+rm -f "$ERR_FILE"
 
+# ---------------------------------------------------------------- 启动
 log "启动窗口 …"
 "$PY" -m zipkit gui >>"$LOG" 2>&1
 code=$?
@@ -90,9 +110,8 @@ log "退出码: $code"
 if [ "$code" -ne 0 ] && [ "$code" -ne 130 ]; then
   show_error "程序异常退出（退出码 $code）。
 
-详情见日志：~/Library/Logs/ZipKit.log
 最后几行：
-$(tail -5 "$LOG")"
+$(tail -6 "$LOG")"
 fi
 
 exit "$code"
