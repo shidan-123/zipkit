@@ -35,8 +35,11 @@ def copy_package() -> int:
     )
 
     # 顺手把版本文件写进去，方便确认打包版本
+    # 只写相对信息：不要把本机绝对路径带进仓库（会泄露用户名）
     (LIB / "BUNDLE_INFO.txt").write_text(
-        f"built from {ROOT}\nversion file: zipkit/__init__.py\n",
+        "本目录由 scripts/build_app.py 自动生成，请勿手改。\n"
+        "源码位置：项目根目录下的 zipkit/\n"
+        "重新构建：python3 scripts/build_app.py\n",
         encoding="utf-8",
     )
 
