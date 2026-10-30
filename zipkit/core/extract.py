@@ -23,6 +23,7 @@ from ..errors import (
     UnsafeArchiveError,
     ZipKitError,
 )
+from .encoding import repair_zip_name
 from .formats import OOXML_EXTS, suffix_of
 from .safety import DEFAULT_LIMITS, Limits, human, safe_join, validate_member
 
@@ -191,27 +192,33 @@ def _extract_zip(
         # 第一遍：只校验，不写盘
         planned: List[tuple] = []
         for info in infos:
-            target = safe_join(dest, info.filename)          # 路径穿越检查
-            limits.check_ratio(info.filename, info.file_size, info.compress_size)
+            # Windows 用 GBK 打包的中文名没有 UTF-8 标记，先还原，再校验
+            display_name = repair_zip_name(info.filename, info.flag_bits)
+            if display_name != info.filename:
+                report.warnings.append(
+                    f"已修复乱码文件名：{info.filename} → {display_name}"
+                )
+            target = safe_join(dest, display_name)            # 路径穿越检查
+            limits.check_ratio(display_name, info.file_size, info.compress_size)
             limits.check_single(info.file_size)
             if info.flag_bits & 0x1:
                 raise ArchiveFormatError(
-                    f"这个 ZIP 加了密码，无法解压：{info.filename}",
+                    f"这个 ZIP 加了密码，无法解压：{display_name}",
                     "ZipKit 暂不支持加密压缩包；请先用系统工具输入密码解压",
                 )
-            planned.append((info, target))
+            planned.append((info, target, display_name))
 
         # 第二遍：真正解压
         written_total = 0
-        for info, target in planned:
+        for info, target, display_name in planned:
             if target.exists() and not force:
                 target = _unique_path(target)
             target.parent.mkdir(parents=True, exist_ok=True)
             written = _stream_to_file(
-                zf.open(info), target, limits, written_total, info.filename
+                zf.open(info), target, limits, written_total, display_name
             )
             written_total += written
-            report.entries.append(ExtractedEntry(name=info.filename, size=written))
+            report.entries.append(ExtractedEntry(name=display_name, size=written))
 
 
 def _stream_to_file(
@@ -400,7 +407,7 @@ def list_archive(path: Path | str, limit: int = 200) -> dict:
             for info in zf.infolist():
                 if info.is_dir():
                     continue
-                push(info.filename, info.file_size, info.compress_size)
+                push(repair_zip_name(info.filename, info.flag_bits), info.file_size, info.compress_size)
     elif kind == "7z":
         try:
             import py7zr

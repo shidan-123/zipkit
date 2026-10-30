@@ -4,7 +4,7 @@
 > 会上网就能用：**一个网页界面 + 一条命令**，Windows / macOS / Linux 都能跑，不需要装显卡驱动那种依赖。
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![Tests](https://img.shields.io/badge/tests-55%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-62%20passed-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
@@ -170,7 +170,7 @@ zipkit/
 │   ├── web/                 # 本地网页界面（标准库 http.server）
 │   ├── cli.py               # 命令行入口
 │   └── errors.py            # "发生了什么 + 该怎么办"的统一错误
-├── tests/                   # 55 个测试，含真实文件往返与攻击用例
+├── tests/                   # 62 个测试，含真实文件往返与攻击用例
 ├── scripts/make_demo.py     # 一键生成演示样例
 └── docs/                    # 使用 / 排错 / 维护 / 技术决策 / 小程序方案
 ```
@@ -181,6 +181,7 @@ zipkit/
 
 | 文档 | 什么时候看 |
 |---|---|
+| [使用限制](docs/使用限制.md) | **试用前先看**：哪些情况会被拦住、64 MB 上限怎么绕 |
 | [使用手册](docs/使用手册.md) | 第一次用，想知道每个按钮/参数干什么 |
 | [故障排查](docs/故障排查.md) | 报错了、文件被覆盖了、解压出来是乱的 |
 | [维护指南](docs/维护指南.md) | 你想长期维护这个仓库（发版、升级依赖、处理 Issue） |
