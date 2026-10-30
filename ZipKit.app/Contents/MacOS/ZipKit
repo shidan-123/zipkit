@@ -62,6 +62,26 @@ fi
 
 cd "$PROJECT" || { show_error "无法进入项目目录：$PROJECT"; exit 1; }
 
+# 关键：不让导入依赖"当前目录"。
+# 从 Finder / launchd 启动时，Python 的 sys.path 可能不含 CWD
+# （例如设置了 PYTHONSAFEPATH），于是 -m zipkit 会报 No module named zipkit。
+export PYTHONPATH="$PROJECT${PYTHONPATH:+:$PYTHONPATH}"
+
+log "PATH=$PATH"
+log "PYTHONSAFEPATH=${PYTHONSAFEPATH:-未设置}  PYTHONPATH=$PYTHONPATH"
+
+if ! "$PY" -c "import zipkit" >/dev/null 2>>"$LOG"; then
+  show_error "Python 找不到 ZipKit 的程序文件。
+
+项目目录：$PROJECT
+Python：$PY
+
+请确认 zipkit/ 文件夹是完整的（里面应该有 zipkit/core/、zipkit/gui.py）。
+
+日志：~/Library/Logs/ZipKit.log"
+  exit 1
+fi
+
 log "启动窗口 …"
 "$PY" -m zipkit gui >>"$LOG" 2>&1
 code=$?

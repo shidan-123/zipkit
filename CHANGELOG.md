@@ -5,6 +5,20 @@
 
 ---
 
+## [1.1.2] - 2026-10-30
+
+### 修复
+- **双击 `ZipKit.app` 报 `No module named zipkit`**：启动器原先依赖"当前目录"来导入包，
+  从 Finder / launchd 启动时 `sys.path` 可能不含 CWD（`PYTHONSAFEPATH` 等设置会触发）。
+  现在启动器**显式设置 `PYTHONPATH`**，并在启动前先做一次 `import zipkit` 自检，失败时给出可读弹窗。
+- 启动日志新增 `PATH` / `PYTHONSAFEPATH` / `PYTHONPATH` 记录，下次出问题一眼可见。
+
+### 新增
+- `ZipKit.app`：macOS 应用包（双击即开，不弹终端），含自绘图标 `AppIcon.icns`
+- `scripts/make_icon.py`：用 Pillow 生成图标并转 icns（`make icon`）
+
+---
+
 ## [1.1.0] - 2026-10-30
 
 ### 新增

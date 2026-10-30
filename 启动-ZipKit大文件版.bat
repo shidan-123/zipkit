@@ -2,6 +2,7 @@
 chcp 65001 >nul
 title ZipKit 大文件版
 cd /d "%~dp0"
+set "PYTHONPATH=%~dp0"
 
 where py >nul 2>nul
 if %errorlevel%==0 (

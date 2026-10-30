@@ -38,5 +38,6 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 
+export PYTHONPATH="$(pwd)${PYTHONPATH:+:$PYTHONPATH}"
 echo "使用 Python：$PY"
 exec "$PY" -m zipkit gui

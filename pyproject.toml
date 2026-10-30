@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zipkit-tool"
-version = "1.1.0"
+version = "1.1.2"
 description = "简单安全的压缩/解压小工具：支持 txt/log/csv/json/bmp/wav/tiff 压缩，zip/7z/gz/docx/xlsx/pptx 解压，自带本地网页界面"
 readme = "README.md"
 requires-python = ">=3.9"
