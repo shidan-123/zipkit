@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZipKit · 压缩解压</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --ink: #1b1f24; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #2563eb; --accent-ink: #fff;
+    --ok: #15803d; --warn: #b45309; --err: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #171a21; --ink: #e6e8eb; --muted: #9aa4b2;
+            --line: #2a2f3a; --accent: #4f8cff; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 60px; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 -apple-system, "SF Pro SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  header h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.3px; }
+  header h1 span { font-size: 12px; font-weight: 500; color: var(--muted); vertical-align: middle;
+    border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; margin-left: 8px; }
+  header p { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
+  .tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+  .tabs button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit;
+    padding: 9px 0; border-radius: 9px; cursor: pointer; transition: .15s; }
+  .tabs button.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .drop { border: 2px dashed var(--line); border-radius: 14px; background: var(--card);
+    padding: 34px 20px; text-align: center; cursor: pointer; transition: .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+  .drop strong { display: block; font-size: 15px; margin-bottom: 4px; }
+  .drop small { color: var(--muted); }
+  .link { border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; padding: 0; }
+  .filelist { list-style: none; padding: 0; margin: 12px 0; }
+  .filelist li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 9px; margin-bottom: 6px; font-size: 14px; }
+  .filelist .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filelist .s { color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .row label { color: var(--muted); font-size: 14px; }
+  select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); }
+  button.primary { margin-left: auto; background: var(--accent); color: var(--accent-ink); border: 0;
+    font: inherit; font-weight: 600; padding: 10px 22px; border-radius: 10px; cursor: pointer; }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: none; border: 1px solid var(--line); color: var(--ink);
+    font: inherit; padding: 9px 16px; border-radius: 10px; cursor: pointer; }
+  .result { margin-top: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 10px; font-size: 15px; }
+  .stat { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat div { font-size: 13px; color: var(--muted); }
+  .stat b { display: block; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .warnbox { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, var(--card));
+    padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-top: 10px; }
+  .errbox { border-left: 3px solid var(--err); background: color-mix(in srgb, var(--err) 8%, var(--card));
+    padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  textarea { width: 100%; min-height: 260px; resize: vertical; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  footer { margin-top: 34px; color: var(--muted); font-size: 12px; text-align: center; }
+  code { background: color-mix(in srgb, var(--ink) 7%, transparent); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ZipKit<span>本地版 v1.0</span></h1>
+    <p>文件只在你自己的电脑上处理，<b>不会上传到任何服务器</b>。关掉终端窗口服务就停止。</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="pack" class="active">压缩</button>
+    <button data-tab="unpack">解压</button>
+    <button data-tab="text">读文档</button>
+  </div>
+
+  <!-- ============ 压缩 ============ -->
+  <section class="panel active" id="panel-pack">
+    <div class="drop" id="drop-pack">
+      <strong>把文件拖到这里</strong>
+      <small>支持 .txt .log .csv .json .bmp .wav .tiff　·　可以多选</small>
+    </div>
+    <input type="file" id="input-pack" multiple hidden
+           accept=".txt,.log,.csv,.json,.bmp,.wav,.tiff,.tif">
+    <ul class="filelist" id="list-pack"></ul>
+    <div class="row">
+      <label>压缩级别
+        <select id="level">
+          <option value="balanced" selected>平衡（推荐）</option>
+          <option value="fast">快（赶时间）</option>
+          <option value="max">最小（慢一点）</option>
+        </select>
+      </label>
+      <button class="primary" id="do-pack" disabled>开始压缩</button>
+    </div>
+    <div class="result" id="result-pack"></div>
+  </section>
+
+  <!-- ============ 解压 ============ -->
+  <section class="panel" id="panel-unpack">
+    <div class="drop" id="drop-unpack">
+      <strong>把压缩包拖到这里</strong>
+      <small>支持 .zip .7z .gz .tar.gz .tgz .tar .docx .xlsx .pptx</small>
+    </div>
+    <input type="file" id="input-unpack" hidden
+           accept=".zip,.7z,.gz,.tgz,.tar,.docx,.xlsx,.pptx">
+    <ul class="filelist" id="list-unpack"></ul>
+    <div class="row">
+      <label>解压后会自动打包成一个 zip 供你下载（浏览器只能下载单个文件）</label>
+      <button class="primary" id="do-unpack" disabled>开始解压</button>
+    </div>
+    <div class="result" id="result-unpack"></div>
+  </section>
+
+  <!-- ============ 读文档 ============ -->
+  <section class="panel" id="panel-text">
+    <div class="drop" id="drop-text">
+      <strong>把 Word / Excel / PPT 拖到这里</strong>
+      <small>直接抽出里面的文字，不会破坏原文件</small>
+    </div>
+    <input type="file" id="input-text" hidden accept=".docx,.xlsx,.pptx">
+    <ul class="filelist" id="list-text"></ul>
+    <div class="row">
+      <label>想改文字？请用 Office / WPS 打开原文件改，不要改解包出来的 XML。</label>
+      <button class="primary" id="do-text" disabled>提取文字</button>
+    </div>
+    <div class="result" id="result-text"></div>
+  </section>
+
+  <footer>
+    ZipKit v1.0 · 只监听 <code>127.0.0.1</code> · 关闭终端即停止 ·
+    命令行用法见 README
+  </footer>
+</div>
+
+<script>
+(() => {
+  const TOKEN = new URLSearchParams(location.search).get("token") || "";
+  const $ = (sel) => document.querySelector(sel);
+
+  // ---------------- 通用 ----------------
+  const human = (n) => {
+    if (n === null || n === undefined) return "?";
+    const u = ["B", "KB", "MB", "GB"]; let i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? n : n.toFixed(1)) + " " + u[i];
+  };
+
+  const readB64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.readAsDataURL(file);
+  });
+
+  async function post(path, payload) {
+    const resp = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-ZipKit-Token": TOKEN },
+      body: JSON.stringify(payload),
+    });
+    let data;
+    try { data = await resp.json(); } catch { throw new Error("服务返回了无法解析的内容，请刷新页面重试"); }
+    if (data.error) throw new Error(data.hint ? `${data.error}\n${data.hint}` : data.error);
+    if (!resp.ok) throw new Error(`请求失败（HTTP ${resp.status}）`);
+    return data;
+  }
+
+  function save(b64, filename) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/zip" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  const errorBox = (msg) => `<div class="errbox">${msg.replace(/</g, "&lt;")}</div>`;
+  const warnBox = (list) => list.length
+    ? `<div class="warnbox">${list.map((w) => "⚠️ " + w.replace(/</g, "&lt;")).join("<br>")}</div>` : "";
+
+  // ---------------- 标签切换 ----------------
+  document.querySelectorAll("#tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b === btn));
+      document.querySelectorAll(".panel").forEach((p) =>
+        p.classList.toggle("active", p.id === "panel-" + btn.dataset.tab));
+    });
+  });
+
+  // ---------------- 拖拽 / 选择 ----------------
+  function wireDrop(dropEl, inputEl, onFiles) {
+    dropEl.addEventListener("click", () => inputEl.click());
+    dropEl.addEventListener("dragover", (e) => { e.preventDefault(); dropEl.classList.add("over"); });
+    dropEl.addEventListener("dragleave", () => dropEl.classList.remove("over"));
+    dropEl.addEventListener("drop", (e) => {
+      e.preventDefault(); dropEl.classList.remove("over");
+      if (e.dataTransfer.files.length) onFiles([...e.dataTransfer.files]);
+    });
+    inputEl.addEventListener("change", () => {
+      if (inputEl.files.length) onFiles([...inputEl.files]);
+      inputEl.value = "";
+    });
+  }
+
+  const renderList = (el, files) => {
+    el.innerHTML = files.map((f) =>
+      `<li><span class="n">${f.name.replace(/</g, "&lt;")}</span><span class="s">${human(f.size)}</span></li>`
+    ).join("");
+  };
+
+  // ---------------- 压缩 ----------------
+  let packFiles = [];
+  wireDrop($("#drop-pack"), $("#input-pack"), (files) => {
+    files.forEach((f) => {
+      if (!packFiles.some((x) => x.name === f.name && x.size === f.size)) packFiles.push(f);
+    });
+    renderList($("#list-pack"), packFiles);
+    $("#do-pack").disabled = packFiles.length === 0;
+  });
+
+  $("#do-pack").addEventListener("click", async () => {
+    const out = $("#result-pack");
+    const btn = $("#do-pack");
+    btn.disabled = true; btn.textContent = "压缩中…";
+    out.innerHTML = "";
+    try {
+      const payload = { level: $("#level").value, files: [] };
+      for (const f of packFiles) payload.files.push({ name: f.name, data: await readB64(f) });
+      const r = await post("/api/pack", payload);
+
+      const rows = r.entries.map((e) => `<tr>
+          <td>${e.name.replace(/</g, "&lt;")}</td>
+          <td class="num">${human(e.size)}</td>
+          <td class="num">${human(e.compressed)}</td>
+          <td class="num">${(e.savings * 100).toFixed(1)}%</td></tr>`).join("");
+
+      out.innerHTML = `
+        <div class="card">
+          <h3>压缩完成</h3>
+          <div class="stat">
+            <div>原始<b>${human(r.total_in)}</b></div>
+            <div>压缩后<b>${human(r.total_out)}</b></div>
+            <div>节省<b>${(r.savings * 100).toFixed(1)}%</b></div>
+            <div>文件数<b>${r.entries.length}</b></div>
+          </div>
+          <table><thead><tr><th>文件</th><th class="num">原始</th><th class="num">压缩后</th><th class="num">节省</th></tr></thead>
+          <tbody>${rows}</tbody></table>
+          ${warnBox(r.warnings || [])}
+          <p class="note">小提示：BMP / WAV / TIFF 本身就很密，压不动是正常的。</p>
+        </div>`;
+      // 下载按钮单独放，避免 innerHTML 里塞事件
+      const card = out.querySelector(".card");
+      const dl = document.createElement("button");
+      dl.className = "primary"; dl.textContent = "⬇︎ 下载 " + r.filename;
+      dl.style.marginLeft = "0";
+      dl.addEventListener("click", () => save(r.data, r.filename));
+      card.appendChild(dl);
+    } catch (err) {
+      out.innerHTML = errorBox(err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "开始压缩";
+    }
+  });
+
+  // ---------------- 解压 ----------------
+  let unpackFile = null;
+  wireDrop($("#drop-unpack"), $("#input-unpack"), (files) => {
+    unpackFile = files[0];
+    renderList($("#list-unpack"), [unpackFile]);
+    $("#do-unpack").disabled = false;
+  });
+
+  $("#do-unpack").addEventListener("click", async () => {
+    const out = $("#result-unpack");
+    const btn = $("#do-unpack");
+    btn.disabled = true; btn.textContent = "解压中…";
+    out.innerHTML = "";
+    try {
+      const r = await post("/api/unpack", { name: unpackFile.name, data: await readB64(unpackFile) });
+      const rep = r.report;
+      const rows = rep.entries.slice(0, 50).map((e) =>
+        `<tr><td>${e.name.replace(/</g, "&lt;")}</td><td class="num">${human(e.size)}</td></tr>`).join("");
+      const more = rep.entries.length > 50 ? `<p class="note">…还有 ${rep.entries.length - 50} 个文件未显示</p>` : "";
+
+      out.innerHTML = `
+        <div class="card">
+          <h3>解压完成</h3>
+          <div class="stat">
+            <div>文件数<b>${rep.entries.length}</b></div>
+            <div>总大小<b>${human(rep.total_bytes)}</b></div>
+            <div>识别格式<b>${rep.kind}</b></div>
+          </div>
+          ${warnBox(rep.warnings)}
+          ${more}
+          <table><thead><tr><th>文件</th><th class="num">大小</th></tr></thead><tbody>${rows}</tbody></table>
+        </div>`;
+      const card = out.querySelector(".card");
+      const dl = document.createElement("button");
+      dl.className = "primary"; dl.textContent = "⬇︎ 下载解压结果";
+      dl.style.marginLeft = "0";
+      dl.addEventListener("click", () => save(r.data, r.filename));
+      card.appendChild(dl);
+    } catch (err) {
+      out.innerHTML = errorBox(err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "开始解压";
+    }
+  });
+
+  // ---------------- 读文档 ----------------
+  let textFile = null;
+  wireDrop($("#drop-text"), $("#input-text"), (files) => {
+    textFile = files[0];
+    renderList($("#list-text"), [textFile]);
+    $("#do-text").disabled = false;
+  });
+
+  $("#do-text").addEventListener("click", async () => {
+    const out = $("#result-text");
+    const btn = $("#do-text");
+    btn.disabled = true; btn.textContent = "提取中…";
+    out.innerHTML = "";
+    try {
+      const r = await post("/api/text", { name: textFile.name, data: await readB64(textFile) });
+      out.innerHTML = `<div class="card"><h3>共 ${r.chars} 个字符</h3></div>`;
+      const ta = document.createElement("textarea");
+      ta.readOnly = true; ta.value = r.text;
+      out.querySelector(".card").appendChild(ta);
+
+      const cp = document.createElement("button");
+      cp.className = "ghost"; cp.textContent = "复制全部";
+      cp.style.marginTop = "10px";
+      cp.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(r.text);
+        cp.textContent = "已复制 ✓";
+        setTimeout(() => (cp.textContent = "复制全部"), 1500);
+      });
+      out.querySelector(".card").appendChild(cp);
+    } catch (err) {
+      out.innerHTML = errorBox(err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "提取文字";
+    }
+  });
+})();
+</script>
+</body>
+</html>
