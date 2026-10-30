@@ -183,3 +183,20 @@ def test_detect_kind_ignores_wrong_extension(tmp_path: Path) -> None:
     disguised.write_bytes(archive.read_bytes())
 
     assert detect_kind(disguised) == "zip"
+
+
+def test_extract_reports_progress(sample_dir: Path, tmp_path: Path) -> None:
+    """图形界面靠这个回调画进度条，必须真的有数据、且总量对得上。"""
+    sources = sorted(p for p in sample_dir.iterdir() if p.is_file())
+    archive = tmp_path / "p.zip"
+    pack(sources, out_path=archive)
+
+    events = []
+    dest = tmp_path / "out"
+    extract(archive, dest=dest, progress=lambda name, done, total: events.append((name, done, total)))
+
+    assert events, "没有收到任何进度回调"
+    expected_total = sum(p.stat().st_size for p in sources)
+    name, done, total = events[-1]
+    assert total == expected_total
+    assert done == total

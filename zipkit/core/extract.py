@@ -14,7 +14,7 @@ import time
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional
+from typing import Callable, Iterable, Iterator, List, Optional
 
 from ..errors import (
     ArchiveFormatError,
@@ -125,8 +125,14 @@ def extract(
     dest: Path | str | None = None,
     force: bool = False,
     limits: Limits = DEFAULT_LIMITS,
+    progress: Optional[Callable[[str, int, Optional[int]], None]] = None,
 ) -> ExtractReport:
-    """解压一个归档到 dest（默认为同目录下的 `<名字>_extracted`）。"""
+    """解压一个归档到 dest（默认为同目录下的 `<名字>_extracted`）。
+
+    Args:
+        progress: 可选回调 (当前成员名, 已写字节数, 总字节数或 None)。
+            图形界面用它画进度条；总大小未知时（如 .gz）第三个参数为 None。
+    """
     started = time.time()
     src = Path(path).expanduser().resolve()
     if not src.exists():
@@ -153,18 +159,18 @@ def extract(
 
     if kind == "ooxml":
         report.warnings.append(_OOXML_HINT)
-        _extract_zip(src, dest, force, limits, report)
+        _extract_zip(src, dest, force, limits, report, progress)
     elif kind == "zip":
-        _extract_zip(src, dest, force, limits, report)
+        _extract_zip(src, dest, force, limits, report, progress)
     elif kind == "7z":
         _extract_7z(src, dest, force, limits, report)
     elif kind == "gzip":
         if _is_tar_suffix(suffix) or suffix == ".tgz":
-            _extract_targz(src, dest, force, limits, report)
+            _extract_targz(src, dest, force, limits, report, progress)
         else:
-            _extract_gzip(src, dest, force, limits, report)
+            _extract_gzip(src, dest, force, limits, report, progress)
     elif kind == "tar":
-        _extract_tar_file(src, dest, force, limits, report)
+        _extract_tar_file(src, dest, force, limits, report, progress)
     else:  # pragma: no cover - detect_kind 已保证不会到这里
         raise ArchiveFormatError(f"不支持的格式：{kind}")
 
@@ -174,7 +180,12 @@ def extract(
 
 # ------------------------------------------------------------------ ZIP
 def _extract_zip(
-    src: Path, dest: Path, force: bool, limits: Limits, report: ExtractReport
+    src: Path,
+    dest: Path,
+    force: bool,
+    limits: Limits,
+    report: ExtractReport,
+    progress: Optional[Callable[[str, int, Optional[int]], None]] = None,
 ) -> None:
     try:
         zf = zipfile.ZipFile(src)
@@ -209,20 +220,42 @@ def _extract_zip(
             planned.append((info, target, display_name))
 
         # 第二遍：真正解压
+        total_bytes = sum(i.file_size for i in infos)
         written_total = 0
         for info, target, display_name in planned:
             if target.exists() and not force:
                 target = _unique_path(target)
             target.parent.mkdir(parents=True, exist_ok=True)
             written = _stream_to_file(
-                zf.open(info), target, limits, written_total, display_name
+                zf.open(info),
+                target,
+                limits,
+                written_total,
+                display_name,
+                on_progress=_make_progress(progress, display_name, written_total, total_bytes),
             )
             written_total += written
             report.entries.append(ExtractedEntry(name=display_name, size=written))
 
 
+def _make_progress(progress, name: str, offset: int, total: Optional[int]):
+    """把"本次已写字节"转换成"整体已写字节"的回调。"""
+    if progress is None:
+        return None
+
+    def report_progress(written_this_file: int) -> None:
+        progress(name, offset + written_this_file, total)
+
+    return report_progress
+
+
 def _stream_to_file(
-    stream, target: Path, limits: Limits, already_written: int, member: str
+    stream,
+    target: Path,
+    limits: Limits,
+    already_written: int,
+    member: str,
+    on_progress: Optional[Callable[[int], None]] = None,
 ) -> int:
     """把一个流写到文件，同时数字节、卡上限。返回实际写入字节数。"""
     written = 0
@@ -244,6 +277,8 @@ def _stream_to_file(
                         "确认来源可信后可调高 --max-total",
                     )
                 out.write(chunk)
+                if on_progress is not None:
+                    on_progress(written)
     except BaseException:
         # 失败时删掉半截文件，避免用户拿到一个"看起来正常"的损坏文件
         target.unlink(missing_ok=True)
@@ -255,7 +290,12 @@ def _stream_to_file(
 
 # ------------------------------------------------------------------ GZIP
 def _extract_gzip(
-    src: Path, dest: Path, force: bool, limits: Limits, report: ExtractReport
+    src: Path,
+    dest: Path,
+    force: bool,
+    limits: Limits,
+    report: ExtractReport,
+    progress: Optional[Callable[[str, int, Optional[int]], None]] = None,
 ) -> None:
     try:
         with open(src, "rb") as raw:
@@ -266,7 +306,10 @@ def _extract_gzip(
             target = dest / inner_name
             if target.exists() and not force:
                 target = _unique_path(target)
-            written = _stream_to_file(gz, target, limits, 0, inner_name)
+            written = _stream_to_file(
+                gz, target, limits, 0, inner_name,
+                on_progress=_make_progress(progress, inner_name, 0, None),
+            )
     except (gzip.BadGzipFile, EOFError, OSError) as exc:
         raise ArchiveFormatError(
             f"GZ 文件损坏：{exc}",
@@ -284,11 +327,16 @@ def _strip_gz_suffix(name: str) -> str:
 
 # ------------------------------------------------------------------ TAR
 def _extract_tar_file(
-    src: Path, dest: Path, force: bool, limits: Limits, report: ExtractReport
+    src: Path,
+    dest: Path,
+    force: bool,
+    limits: Limits,
+    report: ExtractReport,
+    progress: Optional[Callable[[str, int, Optional[int]], None]] = None,
 ) -> None:
     try:
         with tarfile.open(src, mode="r:*") as tf:
-            _extract_tar_members(tf, dest, force, limits, report)
+            _extract_tar_members(tf, dest, force, limits, report, progress)
     except tarfile.TarError as exc:
         raise ArchiveFormatError(
             f"TAR 结构损坏：{exc}",
@@ -297,13 +345,18 @@ def _extract_tar_file(
 
 
 def _extract_targz(
-    src: Path, dest: Path, force: bool, limits: Limits, report: ExtractReport
+    src: Path,
+    dest: Path,
+    force: bool,
+    limits: Limits,
+    report: ExtractReport,
+    progress: Optional[Callable[[str, int, Optional[int]], None]] = None,
 ) -> None:
     try:
         # 用 "r:" 而不是 "r|"：需要先校验全部成员名再落盘，必须能来回 seek。
         # gzip.open 返回的 GzipFile 支持 seek（代价是内部重读一遍）。
         with gzip.open(src, "rb") as gz, tarfile.open(fileobj=gz, mode="r:") as tf:
-            _extract_tar_members(tf, dest, force, limits, report)
+            _extract_tar_members(tf, dest, force, limits, report, progress)
     except (gzip.BadGzipFile, tarfile.TarError, EOFError, OSError) as exc:
         raise ArchiveFormatError(
             f".tar.gz 结构损坏：{exc}",
@@ -312,13 +365,19 @@ def _extract_targz(
 
 
 def _extract_tar_members(
-    tf: tarfile.TarFile, dest: Path, force: bool, limits: Limits, report: ExtractReport
+    tf: tarfile.TarFile,
+    dest: Path,
+    force: bool,
+    limits: Limits,
+    report: ExtractReport,
+    progress: Optional[Callable[[str, int, Optional[int]], None]] = None,
 ) -> None:
     members = [m for m in tf.getmembers() if m.isfile()]
     limits.check_file_count(len(members))
     limits.check_declared_size(sum(m.size for m in members))
 
     skipped_special: List[str] = []
+    total_bytes = sum(m.size for m in members)
     total = 0
     for member in members:
         if member.issym() or member.islnk() or member.isdev():
@@ -332,7 +391,10 @@ def _extract_tar_members(
         extracted = tf.extractfile(member)
         if extracted is None:
             continue
-        written = _stream_to_file(extracted, target, limits, total, member.name)
+        written = _stream_to_file(
+            extracted, target, limits, total, member.name,
+            on_progress=_make_progress(progress, member.name, total, total_bytes),
+        )
         total += written
         report.entries.append(ExtractedEntry(name=member.name, size=written))
 

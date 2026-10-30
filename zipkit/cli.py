@@ -154,6 +154,19 @@ def cmd_check(args) -> int:
     return 0
 
 
+def cmd_gui(args) -> int:
+    """打开桌面窗口（大文件版）。延迟导入：没有图形环境时不影响其他命令。"""
+    try:
+        from .gui import main as gui_main
+    except ImportError as exc:  # 没装 tkinter 的 Python
+        raise ZipKitError(
+            f"这个 Python 没有图形库（{exc}）",
+            "装一个官方 Python 3.13，或改用命令行：python3 -m zipkit unpack 文件名",
+        ) from exc
+
+    return gui_main()
+
+
 def cmd_web(args) -> int:
     from .web.server import serve
 
@@ -212,6 +225,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_check.add_argument("--json", action="store_true")
     p_check.set_defaults(func=cmd_check)
 
+    p_gui = sub.add_parser("gui", help="打开桌面窗口（大文件版，没有 64MB 限制）")
+    p_gui.set_defaults(func=cmd_gui)
+
     p_web = sub.add_parser("web", help="启动本地网页界面（推荐新手用）")
     p_web.add_argument("--port", type=int, default=8765, help="端口（默认 8765）")
     p_web.add_argument("--host", default="127.0.0.1", help="监听地址（默认只允许本机）")
@@ -226,8 +242,9 @@ _BANNER = f"""\
 ╭──────────────────────────────────────────────╮
 │  ZipKit {__version__}  ·  压缩 / 解压，说人话        │
 ╰──────────────────────────────────────────────╯
-  新手建议直接跑：  python -m zipkit web
-  然后浏览器里拖文件进去，不用记命令。
+  小文件、想看界面： python3 -m zipkit web     （浏览器，≤64MB）
+  大文件、想拖窗口： python3 -m zipkit gui     （独立窗口，无大小限制）
+  要写脚本/批量：    python3 -m zipkit pack / unpack
 """
 
 

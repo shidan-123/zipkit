@@ -4,7 +4,7 @@
 > 会上网就能用：**一个网页界面 + 一条命令**，Windows / macOS / Linux 都能跑，不需要装显卡驱动那种依赖。
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![Tests](https://img.shields.io/badge/tests-62%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
@@ -83,7 +83,28 @@ python3 -m zipkit web
 
 关掉终端窗口，服务就停了，不会有后台进程残留。
 
-### 方式二：命令行（可脚本化，适合批量/大文件）
+### 方式二：桌面窗口版（大文件专用，**没有 64 MB 限制**）
+
+网页版要把文件转成 Base64 传，膨胀 33% 且吃内存，所以卡在 64 MB。
+大文件用这个**独立的窗口程序**——它就是你在找一个"单独的软件"：
+
+```bash
+python3 -m zipkit gui
+```
+
+macOS / Windows 上可以直接**双击**启动（不用敲命令）：
+
+| 文件 | 系统 |
+|---|---|
+| `启动-ZipKit大文件版.command` | macOS（首次右键 → 打开） |
+| `启动-ZipKit大文件版.bat` | Windows |
+
+窗口里两个标签页：**压缩** / **解压**，选文件 → 点开始 → 看进度条。
+上限只取决于磁盘剩余空间（实测 351.6 MB 的包，**0.5 秒**解完，SHA-256 一致）。
+
+> macOS 需要 Tk 8.6（官方 python.org 的 Python 3.13 自带）。启动脚本会自动挑对的那个。
+
+### 方式三：命令行（可脚本化，适合批量）
 
 ```bash
 # 压缩：把整个 demo 目录打包
@@ -102,7 +123,7 @@ python3 -m zipkit text 报告.docx
 python3 -m zipkit check *.wav *.bmp
 ```
 
-### 方式三：装成系统命令（可选）
+### 方式四：装成系统命令（可选）
 
 ```bash
 pip install -e .
@@ -168,6 +189,7 @@ zipkit/
 │   │   ├── safety.py        # 路径穿越 / 炸弹 / 覆盖防护
 │   │   └── formats.py       # 格式知识库（哪些能压、压得动吗）
 │   ├── web/                 # 本地网页界面（标准库 http.server）
+│   ├── gui.py               # 桌面窗口版（大文件，Tkinter）
 │   ├── cli.py               # 命令行入口
 │   └── errors.py            # "发生了什么 + 该怎么办"的统一错误
 ├── tests/                   # 62 个测试，含真实文件往返与攻击用例
@@ -193,7 +215,8 @@ zipkit/
 ## 路线图
 
 - [x] **v1.0** —— 压缩 8 类文件、解压 5 类归档、Office 读文、网页界面、安全防护、三平台
-- [ ] **v1.1** —— 拖拽整目录、压缩包内预览、`--password` 支持加密 zip
+- [x] **v1.1** —— 桌面窗口版（大文件无限制）、实时进度条、双击启动脚本
+- [ ] **v1.1.1** —— 压缩包内预览、`--password` 支持加密 zip
 - [ ] **v1.2** —— Windows/macOS 单文件打包（PyInstaller），双击即用
 - [ ] **v2.0** —— 微信小程序（云端 API + 小程序前端，见 [小程序方案](docs/小程序方案.md)）
 

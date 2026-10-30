@@ -4,6 +4,7 @@ help:
 	@echo "make test     - 跑全部测试"
 	@echo "make demo     - 生成演示样例到 demo/"
 	@echo "make web      - 启动网页版（不自动开浏览器）"
+	@echo "make gui      - 打开桌面窗口版（大文件）"
 	@echo "make clean    - 清理缓存与生成物"
 
 test:
@@ -17,6 +18,9 @@ demo:
 
 web:
 	python3 -m zipkit web --no-browser
+
+gui:
+	python3 -m zipkit gui
 
 lint:
 	python3 -m compileall -q zipkit && echo "✅ 语法检查通过"
