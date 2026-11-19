@@ -20,6 +20,21 @@
 - `scripts/build_app.py`：一键重建应用包 + 导入自检
 - `tests/test_app_bundle.py`：比对应用包与源码，防止"改了代码忘记重建"
 
+### 发布
+- `scripts/build_app.py` 现在会**自动把版本号写进 `Info.plist`**，
+  修掉了"包里写着 1.1.0、代码已是 1.1.3"的版本漂移。
+- 新增 `scripts/package_release.py`：用 `ditto` 打 zip（保留符号链接与可执行位），
+  并校验压缩包完整性、启动器权限，输出 SHA-256。
+- 新增 GitHub Actions：`tests.yml`（3 系统 × Python 3.9/3.11/3.13）、
+  `release.yml`（推 `v*` tag 自动建 Release 并挂产物）。
+- 新增 `.gitattributes`：文本统一 LF，`.bat` 强制 CRLF。
+- README 修正测试数量（实为 70 个用例），改用实时 CI 徽章；
+  补上"下载 zip 后首次打开需右键"的说明。
+
+### 修复
+- 网页版启动横幅改为立即输出（`flush=True`）。
+  之前把输出重定向到文件时会被缓冲区吞掉，用户拿不到带 token 的地址。
+
 ---
 
 ## [1.1.2] - 2026-10-30

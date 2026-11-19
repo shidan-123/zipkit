@@ -1,0 +1,19 @@
+# 默认：仓库内文本统一 LF，检出时也保持 LF（Windows 上的 .bat 单独处理）
+* text=auto eol=lf
+
+# Windows 批处理必须是 CRLF，否则 cmd.exe 解析异常
+*.bat text eol=crlf
+
+# macOS 启动脚本必须 LF，且保留可执行位
+*.command text eol=lf
+
+# 二进制：不做任何换行转换
+*.png binary
+*.icns binary
+*.zip binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.wav binary
+*.bmp binary
+*.tiff binary

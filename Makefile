@@ -1,4 +1,4 @@
-.PHONY: help test test-fast demo web clean lint
+.PHONY: help test test-fast demo web clean lint app package release
 
 help:
 	@echo "make test     - 跑全部测试"
@@ -6,6 +6,9 @@ help:
 	@echo "make web      - 启动网页版（不自动开浏览器）"
 	@echo "make gui      - 打开桌面窗口版（大文件）"
 	@echo "make icon     - 重新生成 macOS 应用图标"
+	@echo "make app      - 重建 ZipKit.app（代码 + 版本号）"
+	@echo "make package  - 把 App 打成 Release 用的 zip + sha256"
+	@echo "make release  - 测试 → 重建 App → 打包（发版一条龙）"
 	@echo "make clean    - 清理缓存与生成物"
 
 test:
@@ -25,6 +28,14 @@ gui:
 
 icon:
 	python3 scripts/make_icon.py
+
+app:
+	python3 scripts/build_app.py
+
+package:
+	python3 scripts/package_release.py
+
+release: app test package
 
 lint:
 	python3 -m compileall -q zipkit && echo "✅ 语法检查通过"

@@ -1,10 +1,14 @@
 # ZipKit
 
+<p align="center">
+  <img src="docs/app-icon.png" width="112" alt="ZipKit 图标">
+</p>
+
 > 一个"说人话"的压缩 / 解压小工具。
 > 会上网就能用：**一个网页界面 + 一条命令**，Windows / macOS / Linux 都能跑，不需要装显卡驱动那种依赖。
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen)
+[![tests](https://github.com/shidan-123/zipkit/actions/workflows/tests.yml/badge.svg)](https://github.com/shidan-123/zipkit/actions/workflows/tests.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
@@ -93,6 +97,12 @@ python3 -m zipkit gui
 ```
 
 macOS / Windows 上可以直接**双击**启动（不用敲命令）：
+
+> 懒人版：到 [Releases](https://github.com/shidan-123/zipkit/releases/latest) 下载 `ZipKit-1.1.3-macos.zip`，
+> 解压后双击 `ZipKit.app` 即可。**仍然需要本机有 Python 3.9+（Tk ≥ 8.6）**，
+> 真正"免 Python 的单文件版"在路线图 v1.2。
+>
+> 首次打开若提示"无法验证开发者"：**右键 → 打开**（本应用没有 Apple 签名，属正常现象）。
 
 | 文件 | 系统 | 说明 |
 |---|---|---|
@@ -193,7 +203,7 @@ zipkit/
 │   ├── gui.py               # 桌面窗口版（大文件，Tkinter）
 │   ├── cli.py               # 命令行入口
 │   └── errors.py            # "发生了什么 + 该怎么办"的统一错误
-├── tests/                   # 62 个测试，含真实文件往返与攻击用例
+├── tests/                   # 70 个测试用例，含真实文件往返与攻击用例
 ├── scripts/make_demo.py     # 一键生成演示样例
 └── docs/                    # 使用 / 排错 / 维护 / 技术决策 / 小程序方案
 ```
@@ -218,7 +228,7 @@ zipkit/
 - [x] **v1.0** —— 压缩 8 类文件、解压 5 类归档、Office 读文、网页界面、安全防护、三平台
 - [x] **v1.1** —— 桌面窗口版（大文件无限制）、实时进度条、双击启动脚本
 - [ ] **v1.1.1** —— 压缩包内预览、`--password` 支持加密 zip
-- [ ] **v1.2** —— Windows/macOS 单文件打包（PyInstaller），双击即用
+- [ ] **v1.2** —— Windows/macOS 单文件打包（PyInstaller），**免装 Python** 双击即用
 - [ ] **v2.0** —— 微信小程序（云端 API + 小程序前端，见 [小程序方案](docs/小程序方案.md)）
 
 ## 许可

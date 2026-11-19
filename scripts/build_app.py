@@ -10,6 +10,8 @@ macOS 从 Finder 启动的 App，如果没有隐私授权，**读不了 ~/Downlo
 """
 from __future__ import annotations
 
+import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -20,6 +22,35 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "ZipKit.app"
 LIB = APP / "Contents" / "Resources" / "lib"
 LAUNCHER = APP / "Contents" / "MacOS" / "ZipKit"
+PLIST = APP / "Contents" / "Info.plist"
+
+
+def project_version() -> str:
+    """版本号的唯一来源：zipkit/__init__.py。"""
+    text = (ROOT / "zipkit" / "__init__.py").read_text(encoding="utf-8")
+    match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    if not match:
+        raise SystemExit("❌ 无法从 zipkit/__init__.py 读取 __version__")
+    return match.group(1)
+
+
+def sync_version() -> str:
+    """把 Info.plist 的版本对齐到源码，避免"包里 1.1.0、代码 1.1.3"。"""
+    version = project_version()
+    with PLIST.open("rb") as handle:
+        info = plistlib.load(handle)
+
+    old = (info.get("CFBundleShortVersionString"), info.get("CFBundleVersion"))
+    if old == (version, version):
+        print(f"✅ 版本号已一致：{version}")
+        return version
+
+    info["CFBundleShortVersionString"] = version
+    info["CFBundleVersion"] = version
+    with PLIST.open("wb") as handle:
+        plistlib.dump(info, handle)
+    print(f"✅ 版本号已同步：{'/'.join(map(str, old))} → {version}")
+    return version
 
 
 def copy_package() -> int:
@@ -68,6 +99,7 @@ def main() -> int:
     if not APP.exists():
         print(f"❌ 找不到 {APP}", file=sys.stderr)
         return 1
+    sync_version()
     code = copy_package()
     ensure_executable()
     build_icon()

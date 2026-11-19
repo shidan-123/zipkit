@@ -274,7 +274,9 @@ def serve(
                 "  关掉服务：在这个终端窗口按 Ctrl + C",
                 "",
             ]
-        )
+        ),
+        # 必须立即刷出：重定向到文件（nohup、CI、日志）时也要马上看到 token
+        flush=True,
     )
 
     if open_browser:
