@@ -5,6 +5,26 @@
 
 ---
 
+## [Unreleased]
+
+### 新增
+- **Windows 安装包**：`ZipKit-<版本>-windows-x64-setup.exe`。
+  装到当前用户目录（`%LOCALAPPDATA%\Programs\ZipKit`），**不需要管理员权限**，
+  带开始菜单快捷方式与卸载项。由 Inno Setup 在 CI 的 Windows 机器上编译，
+  脚本见 `packaging/windows-installer.iss`。
+- 刻意**不抢 `.zip` 文件关联**——装个工具就改掉系统默认解压方式，是最招人烦的行为。
+
+### 修复
+- `scripts/package_windows.py` 写校验文件时改用 LF 换行。
+  之前 Windows 上会写成 CRLF，macOS/Linux 用户跑 `shasum -c` 会把 `\r` 当成文件名的一部分，
+  报"找不到文件"，看起来像下载损坏。
+
+### 说明
+- 安装包界面目前是英文：Inno Setup 官方未内置简体中文，需要额外下载语言文件。
+  程序本身仍是完整中文。
+
+---
+
 ## [1.2.0] - 2026-11-25
 
 ### 新增

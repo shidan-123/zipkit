@@ -73,7 +73,9 @@ def main() -> int:
 
     digest = sha256(target)
     sums = DIST / "SHA256-windows.txt"
-    sums.write_text(f"{digest}  {target.name}\n", encoding="utf-8")
+    # newline="\n"：Windows 上 write_text 默认把 \n 转成 \r\n，
+    # 会让 macOS/Linux 的 `shasum -c` 认为文件名带了个 \r，报"找不到文件"。
+    sums.write_text(f"{digest}  {target.name}\n", encoding="utf-8", newline="\n")
 
     print(f"📦 {target.name}  {target.stat().st_size / 1024 / 1024:.2f} MB")
     for name, size in infos.items():

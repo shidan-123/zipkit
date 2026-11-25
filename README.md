@@ -68,6 +68,7 @@
 | 平台 | 文件 | 说明 |
 |---|---|---|
 | Windows | `ZipKit-*-windows-x64.zip` | 解压后双击 `ZipKit.exe` |
+| Windows（安装版） | `ZipKit-*-setup.exe` | 带开始菜单与卸载项，不需要管理员权限 |
 | macOS（Apple 芯片） | `ZipKit-*-macos-arm64.zip` | 解压后拖进「应用程序」 |
 
 程序内部打包了 Python 运行时，**别人的电脑不需要安装任何东西**。

@@ -134,9 +134,37 @@ jobs:
       - name: 组装压缩包并计算校验和
         run: python scripts/package_windows.py
 
+      # 安装包只是个壳：真正的程序还是那两个 exe，装完直接能跑
+      - name: 安装 Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: 生成 Windows 安装包
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "找不到 ISCC.exe：$iscc" }
+          & $iscc "/DMyAppVersion=$env:VERSION" "packaging\windows-installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "编译安装包失败（退出码 $LASTEXITCODE）" }
+          Get-ChildItem dist\*setup.exe | Format-Table Name, Length
+
+      - name: 计算安装包校验和
+        shell: python
+        run: |
+          import glob, hashlib, pathlib
+          files = glob.glob("dist/*setup.exe")
+          if not files:
+              raise SystemExit("没有生成 setup.exe")
+          f = pathlib.Path(files[0])
+          h = hashlib.sha256(f.read_bytes()).hexdigest()
+          out = pathlib.Path("dist/SHA256-setup.txt")
+          out.write_text(f"{h}  {f.name}\n", encoding="utf-8", newline="\n")
+          print(out.read_text(), end="")
+
       - name: 上传到 Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/ZipKit-*-windows-x64.zip
+            dist/ZipKit-*-setup.exe
             dist/SHA256-windows.txt
+            dist/SHA256-setup.txt
