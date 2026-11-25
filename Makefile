@@ -6,6 +6,7 @@ help:
 	@echo "make web      - 启动网页版（不自动开浏览器）"
 	@echo "make gui      - 打开桌面窗口版（大文件）"
 	@echo "make icon     - 重新生成 macOS 应用图标"
+	@echo "make macapp   - 打包成独立 .app（内含 Python，无需安装）"
 	@echo "make app      - 重建 ZipKit.app（代码 + 版本号）"
 	@echo "make package  - 把 App 打成 Release 用的 zip + sha256"
 	@echo "make release  - 测试 → 重建 App → 打包（发版一条龙）"
@@ -45,3 +46,13 @@ clean:
 	find . -name "*.pyc" -delete
 	rm -rf .pytest_cache demo/*.zip
 	@echo "✅ 已清理"
+
+macapp:
+	PYINSTALLER_CONFIG_DIR="$$PWD/build/.pyinstaller-cache" \
+	../.venv313/bin/python -m PyInstaller --name ZipKit --windowed \
+	  --icon "ZipKit.app/Contents/Resources/AppIcon.icns" \
+	  --osx-bundle-identifier com.shidan123.zipkit \
+	  --add-data "zipkit/web/static:zipkit/web/static" --paths "." \
+	  --noconfirm --clean --distpath dist --workpath build scripts/macos_entry.py
+	ditto -c -k --sequesterRsrc --keepParent dist/ZipKit.app "dist/ZipKit-macOS-AppleSilicon.zip"
+	@echo "✅ 产物：dist/ZipKit-macOS-AppleSilicon.zip"
