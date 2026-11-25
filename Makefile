@@ -53,6 +53,6 @@ macapp:
 	  --icon "ZipKit.app/Contents/Resources/AppIcon.icns" \
 	  --osx-bundle-identifier com.shidan123.zipkit \
 	  --add-data "zipkit/web/static:zipkit/web/static" --paths "." \
-	  --noconfirm --clean --distpath dist --workpath build scripts/macos_entry.py
+	  --noconfirm --clean --distpath dist --workpath build scripts/gui_entry.py
 	ditto -c -k --sequesterRsrc --keepParent dist/ZipKit.app "dist/ZipKit-macOS-AppleSilicon.zip"
 	@echo "✅ 产物：dist/ZipKit-macOS-AppleSilicon.zip"

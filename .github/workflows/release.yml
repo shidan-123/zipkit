@@ -1,19 +1,30 @@
 name: release
 
-# 打一个 v* 的 tag 就自动发版：跑测试 → 重建 App → 打包 → 建 Release 并挂上产物。
+# 打一个 v* 的 tag 就自动发版：
+#   跑测试 → 打包成「免安装」独立程序（内含 Python 运行时）→ 挂到 Release
+#
+# 为什么用 PyInstaller 而不是直接发源码：
+# 别人的电脑上没有 Python。把解释器打进程序里，下载解压双击就能用。
+#
+# 注意：PyInstaller 不能跨平台 —— Windows 包必须在 Windows 上打，
+# macOS 包必须在 macOS 上打，所以这里用两个 job 并行。
+
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+env:
+  PYTHONUTF8: "1"
+
 jobs:
+  # ------------------------------------------------------------------ macOS
   macos-app:
-    name: 打包 macOS 应用并发布
+    name: 打包 macOS 独立应用
     runs-on: macos-latest
-    env:
-      PYTHONUTF8: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -27,21 +38,119 @@ jobs:
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          python -m pip install -e ".[dev]" pyinstaller
 
       - name: 测试（不绿就不发）
         run: python -m pytest -q
 
-      - name: 重建应用包（把版本号写进 Info.plist）
-        run: python scripts/build_app.py
+      - name: 读取版本号
+        shell: bash
+        run: |
+          VERSION=$(python -c 'import re,pathlib; t=pathlib.Path("zipkit/__init__.py").read_text(encoding="utf-8"); print(re.search(r"__version__\s*=\s*\"([^\"]+)\"", t).group(1))')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "版本：$VERSION"
 
-      - name: 打 zip + 校验
-        run: python scripts/package_release.py
+      - name: 打包成独立 .app（内含 Python）
+        run: |
+          python -m PyInstaller \
+            --name ZipKit \
+            --windowed \
+            --icon "ZipKit.app/Contents/Resources/AppIcon.icns" \
+            --osx-bundle-identifier com.shidan123.zipkit \
+            --add-data "zipkit/web/static:zipkit/web/static" \
+            --paths . \
+            --noconfirm --clean \
+            --distpath dist --workpath build \
+            scripts/gui_entry.py
 
-      - name: 创建 GitHub Release
+      - name: 临时签名（arm64 未签名会被直接拒绝运行）
+        run: codesign --force --deep --sign - dist/ZipKit.app
+
+      - name: 打 zip（ditto 保留权限位与符号链接）
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/ZipKit.app "dist/ZipKit-${VERSION}-macos-arm64.zip"
+          cd dist && shasum -a 256 "ZipKit-${VERSION}-macos-arm64.zip" > "SHA256-macos.txt"
+          ls -lh
+
+      - name: 上传到 Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            dist/ZipKit-*-macos.zip
-            dist/SHA256SUMS.txt
+            dist/ZipKit-*-macos-arm64.zip
+            dist/SHA256-macos.txt
+
+  # ---------------------------------------------------------------- Windows
+  windows-app:
+    name: 打包 Windows 独立程序
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" pyinstaller pillow
+
+      - name: 测试（不绿就不发）
+        run: python -m pytest -q
+
+      - name: 读取版本号
+        shell: bash
+        run: |
+          VERSION=$(python -c 'import re,pathlib; t=pathlib.Path("zipkit/__init__.py").read_text(encoding="utf-8"); print(re.search(r"__version__\s*=\s*\"([^\"]+)\"", t).group(1))')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "版本：$VERSION"
+
+      - name: 生成 exe 图标
+        run: |
+          python -c "import os; from PIL import Image; os.makedirs('build', exist_ok=True); im=Image.open('docs/app-icon.png'); im.save('build/icon.ico', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+
+      - name: 打包命令行版
+        run: |
+          python -m PyInstaller --name zipkit --onefile --console `
+            --icon build/icon.ico `
+            --add-data "zipkit/web/static;zipkit/web/static" `
+            --paths . --noconfirm --clean `
+            --distpath dist --workpath build/pyi-cli `
+            scripts/cli_entry.py
+
+      - name: 打包图形界面版
+        run: |
+          python -m PyInstaller --name ZipKit --onefile --windowed `
+            --icon build/icon.ico `
+            --add-data "zipkit/web/static;zipkit/web/static" `
+            --paths . --noconfirm --clean `
+            --distpath dist --workpath build/pyi-gui `
+            scripts/gui_entry.py
+
+      - name: 组装压缩包
+        shell: pwsh
+        run: |
+          Copy-Item "packaging/使用说明.txt" "dist/使用说明.txt"
+          $size = (Get-Item dist/ZipKit.exe).Length / 1MB
+          Write-Host ("图形界面 exe 大小：{0:N1} MB" -f $size)
+          Compress-Archive -Path "dist/ZipKit.exe", "dist/zipkit.exe", "dist/使用说明.txt" `
+            -DestinationPath "dist/ZipKit-$env:VERSION-windows-x64.zip" -Force
+          Get-ChildItem dist
+
+      - name: 计算校验和
+        shell: bash
+        run: |
+          cd dist
+          sha256sum "ZipKit-${VERSION}-windows-x64.zip" > "SHA256-windows.txt"
+          cat SHA256-windows.txt
+
+      - name: 上传到 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/ZipKit-*-windows-x64.zip
+            dist/SHA256-windows.txt

@@ -61,6 +61,20 @@
 
 ---
 
+## 下载即用（不用装 Python）
+
+不想折腾环境的话，直接去 [Releases](https://github.com/shidan-123/zipkit/releases) 下载免安装版：
+
+| 平台 | 文件 | 说明 |
+|---|---|---|
+| Windows | `ZipKit-*-windows-x64.zip` | 解压后双击 `ZipKit.exe` |
+| macOS（Apple 芯片） | `ZipKit-*-macos-arm64.zip` | 解压后拖进「应用程序」 |
+
+程序内部打包了 Python 运行时，**别人的电脑不需要安装任何东西**。
+首次打开会有系统安全提示，处理方法见包内的《使用说明.txt》。
+
+---
+
 ## 快速开始
 
 ### 前置：只要有 Python 3.9+ 就行

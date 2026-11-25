@@ -5,6 +5,31 @@
 
 ---
 
+## [1.2.0] - 2026-11-25
+
+### 新增
+
+**免安装版（Windows / macOS）**
+
+把 Python 运行时打进程序里，别人的电脑**不需要安装 Python**，下载解压双击就能用。
+
+- Windows：`ZipKit.exe`（图形界面）+ `zipkit.exe`（命令行），单文件、含图标
+- macOS：`ZipKit.app`（Apple 芯片），内含 Python 3.13 与 Tcl/Tk
+- 体积约 9.5 MB（压缩后），解压后 macOS 约 26 MB
+
+**构建方式**
+
+- `scripts/gui_entry.py`：跨平台 GUI 入口，异常写日志并弹原生提示（macOS 用 osascript，Windows 用 tkinter）
+- `scripts/cli_entry.py`：命令行入口，供批处理与脚本使用
+- `Makefile` 新增 `make macapp`：本机一键打包 macOS 独立版
+- Release 流水线改为两个并行 job（`macos-latest` / `windows-latest`），用 PyInstaller 打包并自动挂到 Release
+
+### 说明
+- PyInstaller 不能跨平台，所以 Windows 包由 GitHub 的 Windows 机器产出
+- 未做代码签名：首次打开会有系统提示（Windows SmartScreen / macOS Gatekeeper），说明文件里已写明处理方式
+
+---
+
 ## [1.1.3] - 2026-10-30
 
 ### 修复
