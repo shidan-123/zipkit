@@ -131,22 +131,8 @@ jobs:
             --distpath dist --workpath build/pyi-gui `
             scripts/gui_entry.py
 
-      - name: 组装压缩包
-        shell: pwsh
-        run: |
-          Copy-Item "packaging/使用说明.txt" "dist/使用说明.txt"
-          $size = (Get-Item dist/ZipKit.exe).Length / 1MB
-          Write-Host ("图形界面 exe 大小：{0:N1} MB" -f $size)
-          Compress-Archive -Path "dist/ZipKit.exe", "dist/zipkit.exe", "dist/使用说明.txt" `
-            -DestinationPath "dist/ZipKit-$env:VERSION-windows-x64.zip" -Force
-          Get-ChildItem dist
-
-      - name: 计算校验和
-        shell: bash
-        run: |
-          cd dist
-          sha256sum "ZipKit-${VERSION}-windows-x64.zip" > "SHA256-windows.txt"
-          cat SHA256-windows.txt
+      - name: 组装压缩包并计算校验和
+        run: python scripts/package_windows.py
 
       - name: 上传到 Release
         uses: softprops/action-gh-release@v2
